@@ -34,17 +34,15 @@ namespace Pacco.Services.Availability.Api
                 .Configure(app => app
                     .UseInfrastructure()
                     .UseRouting()
-                    .UseDispatcherEndpoints(e =>
-                    {
-                        e.Post<AddResource>("resources", afterDispatch: (cmd, ctx) =>
-                            ctx.Response.Created($"resources/{cmd.ResourceId}"));
-                    })
                     .UseEndpoints(e =>
                     {
                         e.MapControllers();
                     })
                     .UseDispatcherEndpoints(endpoints => endpoints
-                        .Get("", ctx => ctx.Response.WriteAsync(ctx.RequestServices.GetService<AppOptions>().Name))))
+                        .Get("", ctx => ctx.Response.WriteAsync(ctx.RequestServices.GetService<AppOptions>().Name))
+                        .Post<AddResource>("resources", afterDispatch: (cmd, ctx) =>
+                            ctx.Response.Created($"resources/{cmd.ResourceId}"))
+                        .Post<ReserveResource>("resources/{resourceId}/reservations/{dateTime}")))
                 .UseLogging()
                 .UseVault();               
                 
