@@ -4,6 +4,7 @@ using System.Linq;
 using System.Threading.Tasks;
 using Convey.CQRS.Events;
 using Convey.MessageBrokers;
+using Convey.MessageBrokers.Outbox;
 using Convey.MessageBrokers.RabbitMQ;
 using Microsoft.AspNetCore.Http;
 using Microsoft.Extensions.Logging;
@@ -20,16 +21,18 @@ namespace Pacco.Services.Availability.Infrastructure.Services
         private readonly IMessagePropertiesAccessor _messagePropertiesAccessor;
         private readonly ILogger<IMessageBroker> _logger;
         private readonly string _spanContextHeader;
+        private readonly IMessageOutbox _outbox;
 
         public MessageBroker(IBusPublisher busPublisher, ICorrelationContextAccessor contextAccessor,
             IHttpContextAccessor httpContextAccessor, IMessagePropertiesAccessor messagePropertiesAccessor,
-            RabbitMqOptions options, ILogger<IMessageBroker> logger)
+            RabbitMqOptions options, ILogger<IMessageBroker> logger, IMessageOutbox outbox)
         {
             _busPublisher = busPublisher;
             _contextAccessor = contextAccessor;
             _httpContextAccessor = httpContextAccessor;
             _messagePropertiesAccessor = messagePropertiesAccessor;
             _logger = logger;
+            _outbox = outbox;
             _spanContextHeader = string.IsNullOrWhiteSpace(options.SpanContextHeader)
                 ? DefaultSpanContextHeader
                 : options.SpanContextHeader;
@@ -45,11 +48,15 @@ namespace Pacco.Services.Availability.Infrastructure.Services
             }
 
             var messageProperties = _messagePropertiesAccessor.MessageProperties;
+            var originatedMessageId = messageProperties?.MessageId;
             var correlationId = messageProperties?.CorrelationId;
             var spanContext = messageProperties?.GetSpanContext(_spanContextHeader);
             var headers = messageProperties.GetHeadersToForward();
             var correlationContext = _contextAccessor.CorrelationContext ??
                                      _httpContextAccessor.GetCorrelationContext();
+
+
+            var tasks = new List<Task>();
 
             foreach (var @event in events)
             {
@@ -60,9 +67,22 @@ namespace Pacco.Services.Availability.Infrastructure.Services
 
                 var messageId = Guid.NewGuid().ToString("N");
                 _logger.LogTrace($"Publishing integration event: {@event.GetType().Name} [id: '{messageId}'].");
-                await _busPublisher.PublishAsync(@event, messageId, correlationId, spanContext, correlationContext,
+
+                if (_outbox.Enabled)
+                {
+                    var outboxTasks =  _outbox.SendAsync(@event, originatedMessageId, messageId, correlationId, spanContext,
+                        correlationContext, headers);
+                    tasks.Add(outboxTasks);
+                    continue;
+                }
+
+                var publisherTask = _busPublisher.PublishAsync(@event, messageId, correlationId, spanContext, correlationContext,
                     headers);
+                
+                tasks.Add(publisherTask);
             }
+
+            await Task.WhenAll(tasks);
         }
     }
 }
