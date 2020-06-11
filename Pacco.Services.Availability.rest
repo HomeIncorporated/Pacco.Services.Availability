@@ -1,5 +1,5 @@
-@url = http://localhost:5001
-@resourceId = 00000000-0000-0000-0000-000000000003
+@url = http://localhost:5000/availability
+@resourceId = 00000000-0000-0000-0000-000000000004
 @dateTime = 2020-01-11
 @tags = ["vehicle", "armor"]
 
@@ -25,7 +25,7 @@ Content-Type: application/json
 {
   "resourceId": "{{resourceId}}",
   "dateTime": "{{dateTime}}",
-  "priority": 1
+  "priority": 2
 }
 
 ###

@@ -55,7 +55,6 @@ namespace Pacco.Services.Availability.Infrastructure.Services
             var correlationContext = _contextAccessor.CorrelationContext ??
                                      _httpContextAccessor.GetCorrelationContext();
 
-
             var tasks = new List<Task>();
 
             foreach (var @event in events)
