@@ -33,13 +33,14 @@ namespace Pacco.Services.Availability.Tests.Unit.Application.Handlers
         public async Task given_valid_id_and_tags_the_resource_should_be_persisted_using_repository()
         {
             var command = new AddResource(Guid.NewGuid(), new []{"tags"});
+            _repository.ExistsAsync(command.ResourceId).Returns(false);
+
             await Act(command);
 
             await _repository
                 .Received(1)
                 .AddAsync(Arg.Is<Resource>(r => r.Id == command.ResourceId));
         }
-        
 
         #region ARRANGE
 
